@@ -24,105 +24,92 @@ This Salesforce project improves **data management**, **customer relations**, an
 - **Scheduled Bulk Order Updates** – Daily batch jobs update financial records and inventory levels.
 - **Data Quality Enforcement** – Validation rules and formula fields ensure accurate data.
 
----
+## 1. Data Model
 
-## Project Phases
+### **Custom Objects:**
 
-### Phase 1: Architecture & Planning
+1. **HandsMen Customer**
+   - Fields: First Name, Last Name, Email, Phone, Loyalty Status, Total Purchases.
+2. **HandsMen Product**
+   - Fields: Product Name, Price, Stock Quantity, Description.
+3. **HandsMen Order**
+   - Fields: Order Name, Customer (Lookup), Product (Lookup), Quantity, Total Amount, Status (Confirmed/Pending/Rejection).
+4. **Inventory**
+   - Fields: Stock Quantity, Stock Status (Formula).
+5. **Marketing Campaign**
+   - Fields: Campaign Name, Start Date, End Date.
 
-- Defined **Objects**:
-  - `HandsMen_Customer__c`
-  - `HandsMen_Product__c`
-  - `HandsMen_Order__c`
-  - `Inventory__c`
-  - `Marketing_Campaign__c`
-- Designed **Fields & Relationships** (Lookup & Master-Detail).
-- Created **Formula Fields** for calculated values like Full Name and Stock Status.
-- Set up **Validation Rules** for data quality.
-- Planned **automation** using Flows, Apex, and Batch Jobs.
-- Designed email templates for **Order Confirmation**, **Stock Alerts**, and **Loyalty Updates**.
+### **Relationships:**
 
-### Phase 2: Development
+- **Marketing Campaign → HandsMen Customer:** Lookup relationship.
+- **HandsMen Product → HandsMen Order:** Lookup relationship.
+- **HandsMen Order → HandsMen Customer:** Lookup relationship.
+- **Inventory → HandsMen Product:** Master-Detail relationship.
 
-- Created **Custom Tabs** and **App: HandsMen Threads**.
-- Implemented **Record-Triggered Flows** for email alerts and loyalty program.
-- Developed **Apex Trigger** (`OrderTrigger`) to enforce business rules on order quantity.
-- Created **Batch Apex Class** (`InventoryBatchJob`) for inventory restocking.
-- Set up **Profiles, Roles, and Permission Sets** for security and user access.
-- Configured **Email Templates**:
-  - Order Confirmation Email
-  - Low Stock Alert Email
-  - Loyalty Program Email
+### **Formula Fields:**
 
-### Phase 3: Testing & QA
-
-- **Unit Tests** for Apex triggers and batch jobs.
-- Verified **flows and automation** with sample data.
-- Validated **email alerts** by placing test orders.
-- Tested **data validation rules** (e.g., email format, stock quantity).
-- Ensured **security roles** work as expected (Sales, Inventory, Marketing).
-
-### Phase 4: Deployment & Training
-
-- Deployed the solution to **production org**.
-- Conducted **end-user training** for Sales, Inventory, and Marketing teams.
-- Provided **post-go-live monitoring** and support.
+- **Inventory.Stock_Status\_\_c**  
+  Formula:
+  ```
+  IF(Stock_Quantity__c > 10, "Available", "Low Stock")
+  ```
+- **HandsMen_Customer.Full_Name\_\_c**  
+  Formula:
+  ```
+  FirstName__c + " " + LastName__c
+  ```
 
 ---
 
-## Data Model
+## 2. Data Integrity with Validation Rules
 
-### Object Relationships
+### **HandsMen Order:**
 
-- **HandsMen Customer ↔ Marketing Campaign** – Lookup Relationship.
-- **HandsMen Product ↔ HandsMen Order** – Lookup Relationship.
-- **HandsMen Order ↔ HandsMen Customer** – Lookup Relationship.
-- **Inventory ↔ HandsMen Product** – Master-Detail Relationship.
+- **Rule:** Total_Amount\_\_c <= 0
+- **Error Message:** `Please Enter Correct Amount`
 
-### Important Fields
+### **Inventory:**
 
-- **HandsMen Customer**: FirstName, LastName, Email, Phone, Loyalty_Status, Full_Name (Formula).
-- **Inventory**: Stock_Quantity, Stock_Status (Formula).
-- **HandsMen Order**: Status, Quantity, Total_Amount, Postal_Code.
-- **Marketing Campaign**: Campaign Name, Start Date, End Date.
+- **Rule:** Stock_Quantity\_\_c <= 0
+- **Error Message:** `The inventory count is never less than zero.`
 
----
+### **HandsMen Customer:**
 
-## Validation Rules
-
-- **HandsMen Order**: Total*Amount\_\_c <= 0 → *"Please Enter Correct Amount."\_
-- **Inventory**: Stock*Quantity\_\_c <= 0 → *"The inventory count is never less than zero."\_
-- **HandsMen Customer**: NOT CONTAINS(Email, "@gmail.com") → _"Please fill Correct Gmail."_
+- **Rule:** NOT CONTAINS(Email, "@gmail.com")
+- **Error Message:** `Please fill Correct Gmail`
 
 ---
 
-## Automation
+## 3. App Manager Setup
 
-### Flows
-
-- **Order Confirmation Flow** – Sends confirmation email when `Order.Status = Confirmed`.
-- **Stock Alert Flow** – Sends email alert if `Inventory.Stock_Quantity < 5`.
-- **Loyalty Status Update Flow (Scheduled)** – Updates customer loyalty tier (Gold/Silver/Bronze) based on `Total_Purchases`.
-
-### Apex
-
-- **OrderTriggerHandler** – Validates order quantities based on order status.
-- **OrderTrigger** – Runs validation before insert/update.
-- **InventoryBatchJob** – Restocks products with less than 10 units and runs nightly.
+- **App Name:** HandsMen Threads
+- **Tabs:** HandsMen Customer, HandsMen Product, HandsMen Order, Inventory, Marketing Campaign.
 
 ---
 
-## Security Setup
+## 4. Security Model
 
-- **Profile**: Cloned Standard User → Platform 1.
-- **Roles**:
-  - CEO → Sales → Inventory → Marketing.
-- **Permission Set**: `Permission_Platform_1` for CRUD access on key objects.
-- **Users**: Created sample users (e.g., Niklaus, KOI) with assigned roles.
+### **Profiles & Roles**
+
+- **Profile:** Platform 1 (Cloned from Standard User).
+  - Access to HandsMen Products and Inventory objects.
+- **Roles:** CEO → Sales, Inventory, Marketing.
+
+### **Users:**
+
+- User 1: Niklaus.
+- User 2: KOI.
+- User 3: Larkin.
+
+### **Permission Sets:**
+
+- **Permission_Platform_1:** Full access to Customer and Order objects.
 
 ---
 
-## Email Templates
+## 5. Automation
+
+### **Email Templates:**
 
 1. **Order Confirmation Email**  
    Subject: _Your Order has been Confirmed!_  
@@ -136,26 +123,147 @@ This Salesforce project improves **data management**, **customer relations**, an
    ```
 
 2. **Low Stock Alert Email** – Notifies warehouse when inventory is below 5.
+   ```html
+   <p>Dear Inventory Manager,</p>
+   <p>
+     This is to inform you that the stock for the following product is running
+     low:
+   </p>
+   <p>Product Name: {!Inventory__c.HandsMen_Product__c}</p>
+   <p>Current Stock Quantity: {!Inventory__c.Stock_Quantity__c}</p>
+   <p>Please take the necessary steps to restock this item immediately.</p>
+   <p>Best Regards,</p>
+   <p>nventory Monitoring System</p>
+   ```
 3. **Loyalty Program Email** – Updates customers about their loyalty status.
+   ```html
+   <p>
+     Congratulations! You are now a {!HandsMen_Customer__c.Loyalty_Status__c}
+     member and you are eligible for our Loyalty Rewards Program.
+   </p>
+   <p>
+     Enjoy exclusive discounts, early access to offers, and special member
+     benefits.
+   </p>
+   <p>Thank you for your continued Support.</p>
+   ```
+
+### **Flows:**
+
+1. **Order Confirmation Flow:**
+
+   - Triggered when Order**c.Status**c = "Confirmed".
+   - Sends Order Confirmation Email Alert.
+
+2. **Stock Alert Flow:**
+
+   - Triggered when Inventory.Stock_Quantity\_\_c < 5.
+   - Sends email to Inventory Manager.
+
+3. **Loyalty Status Update Flow (Scheduled):**
+   - Updates Loyalty Status based on Total Purchases (Gold/Silver/Bronze).
 
 ---
 
-## Batch Job Scheduling
+## 6. Apex Development
 
-- **Daily Inventory Sync**:
-  ```apex
-  System.schedule('Daily Inventory Sync', '0 0 0 * * ?', new InventoryBatchJob());
-  ```
+### **Apex Class: OrderTriggerHandler**
+
+```apex
+public class OrderTriggerHandler {
+    public static void validateOrderQuantity(List<HandsMen_Order__c> orderList) {
+        for (HandsMen_Order__c order : orderList) {
+            if (order.Status__c == 'Confirmed') {
+                if (order.Quantity__c == null || order.Quantity__c <= 500) {
+                    order.Quantity__c.addError('For Status "Confirmed", Quantity must be more than 500.');
+                }
+            } else if (order.Status__c == 'Pending') {
+                if (order.Quantity__c == null || order.Quantity__c <= 200) {
+                    order.Quantity__c.addError('For Status "Pending", Quantity must be more than 200.');
+                }
+            } else if (order.Status__c == 'Rejection') {
+                if (order.Quantity__c == null || order.Quantity__c != 0) {
+                    order.Quantity__c.addError('For Status "Rejection", Quantity must be 0.');
+                }
+            }
+        }
+    }
+}
+```
+
+### **Apex Trigger: OrderTrigger**
+
+```apex
+trigger OrderTrigger on HandsMen_Order__c (before insert, before update) {
+    if (Trigger.isBefore && (Trigger.isInsert || Trigger.isUpdate)) {
+        OrderTriggerHandler.validateOrderQuantity(Trigger.new);
+    }
+}
+```
+
+### **Batch Apex: InventoryBatchJob**
+
+```apex
+global class InventoryBatchJob implements Database.Batchable<SObject>, Schedulable {
+    global Database.QueryLocator start(Database.BatchableContext BC) {
+        return Database.getQueryLocator('SELECT Id, Stock_Quantity__c FROM Product__c WHERE Stock_Quantity__c < 10');
+    }
+
+    global void execute(Database.BatchableContext BC, List<SObject> records) {
+        List<HandsMen_Product__c> productsToUpdate = new List<HandsMen_Product__c>();
+        for (SObject record : records) {
+            HandsMen_Product__c product = (HandsMen_Product__c) record;
+            product.Stock_Quantity__c += 50;
+            productsToUpdate.add(product);
+        }
+        if (!productsToUpdate.isEmpty()) {
+            update productsToUpdate;
+        }
+    }
+
+    global void finish(Database.BatchableContext BC) {
+        System.debug('Inventory Sync Completed');
+    }
+
+    global void execute(SchedulableContext SC) {
+        Database.executeBatch(new InventoryBatchJob(), 200);
+    }
+}
+```
+
+### **Scheduling the Batch Job**
+
+Execute in **Anonymous Window**:
+
+```
+System.schedule('Daily Inventory Sync', '0 0 0 * * ?', new InventoryBatchJob());
+```
 
 ---
 
-## Testing Scenarios
+## 7. Testing Strategy
 
-1. **Create Order with Status = Confirmed** → Email confirmation should be triggered.
-2. **Set Stock Quantity < 5** → Stock Alert Email should be sent.
-3. **Update Customer Purchases > 1000** → Loyalty Status updates to Gold.
-4. **Validation** – Enter invalid Total Amount or Email to see error messages.
-5. **Run Batch Job** – Verify that low-stock products are restocked automatically.
+### **Unit Testing for Apex:**
+
+- Create test data for Orders, Products, and Inventory.
+- Verify trigger conditions (Confirmed, Pending, Rejection).
+- Validate that batch jobs update stock quantities correctly.
+
+### **Flow Testing:**
+
+- Change order status to Confirmed → Verify email.
+- Reduce stock quantity below 5 → Verify alert email.
+- Run scheduled flow → Check loyalty status updates.
+
+---
+
+## How to Use
+
+1. **Login** to Salesforce.
+2. Navigate to **HandsMen Threads App**.
+3. Use **Tabs**: Customers, Products, Orders, Inventory, Marketing Campaigns.
+4. **Create a test order** and verify email notifications.
+5. **Check inventory** and loyalty updates from scheduled flows.
 
 ---
 
@@ -171,19 +279,5 @@ This Salesforce project improves **data management**, **customer relations**, an
 
 ---
 
-## How to Use
-
-1. **Login** to Salesforce.
-2. Navigate to **HandsMen Threads App**.
-3. Use **Tabs**: Customers, Products, Orders, Inventory, Marketing Campaigns.
-4. **Create a test order** and verify email notifications.
-5. **Check inventory** and loyalty updates from scheduled flows.
-
----
-
----
-
-## Author
-
-**Project by:** Sivamanikanta Gudla  
-**Role:** Salesforce Developer / Admin
+**Prepared By:** Sivamanikanta Gudla  
+**Project Name:** HandsMen Threads  
